@@ -1,47 +1,65 @@
-const inquirer = require('inquirer');
 // const generateMarkdown = require('./utils/generateMarkdown');
+const inquirer = require('inquirer');
 
 
 // TODO: Create an array of questions for user input
-const actionPrompt = [
-    {
+const actionPrompt = Array.from( [{
     type: 'list',
-    // choices: ['View All employees', 'Add an Employee', 'Quit' ],
-    message: '\r\n--------------------------------------------',
-    default: null,
-    name: "action",
-    choices: [
-
-        { name: 'View All Employees', value: 'viewAll' },
-        { name: 'Add an employee', value: 'add' },
-        { name: 'Quit', value: 'q'}
-    ],
-    // validate: function(input) {
-    //     if (input.match(/^q$/)) {
-    //         return false;
-    //     } else {
-    //         return  true
-    //     }
+    
+    message: 'Select an Action',
+    default: "view",
+    name: "topic",
+    choices: ["view", "add", "quit"],
+    //  { 
+    //     name: 'View All Employees',value: "view"
     // },
-    filter() {
-        return new Promise.all(action)
-            
-        }
+    // {
+    //      name: 'Add an employee', value: "add"
+    // },
+    // {
+    //      name: 'Quit', value: "quit"
+    // }
+    // ],
+    
+    },
+    {
+    type: 'input',
+    where: { topic:"add" },
+    message: 'Enter the employee information',
+    name: "first_name"
     }
 
-];
 
 
 
-let actionPromise = () => {
-    // const answers = 
-    console.clear();
-    console.log('\n---------------------------------\n')
-    inquirer.prompt(actionPrompt)
-    .then(answers => { return {...answers } })
-    .catch(err => console.error(err));
+]);
+
+// const actionPromise = () =>  Promise.resolve( inquirer.prompt(actionPrompt))}
+    // async function () { 
+    // await inquirer.prompt(actionPrompt);
+// }
+// {return new Promise( (res, rej) => {
+//     // const answers = 
+//     // console.clear();
+//     inquirer.prompt(actionPrompt)
+//     .then( ({action}) => { res(action )})
+//     .catch( err => {rej(err) })
+// })}
+runPrompt = () => {
+    
+    inquirer.prompt( {
+        actionPrompt,
+        filter() {
+            return new Promise(answers) 
+        }
+    })
+        .then(function(answers) {
+        console.log(answers)
+        return JSON.stringify(answers.topic)
+    })
 }
-module.exports = actionPromise;
+
+module.exports = { prompt: () =>{ ( inquirer.prompt(actionPrompt[0]) )}};
 //module.exports = ( {  ...action  } = {  actionPromise() });
 
 

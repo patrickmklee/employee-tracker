@@ -12,5 +12,5 @@ const connection = mysql.createConnection({
     password: (process.env.DB_PW),
     database: 'employeetrackdb'
   });
-
+  
   module.exports = connection;

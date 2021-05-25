@@ -1,36 +1,176 @@
 
-
+const inquirer = require('inquirer');
 const connection = require('./config/connection.js')
-const actionPromise = require('./script.js');
+let query_all = `
+SELECT * FROM departments AS department_name
+RIGHT JOIN roles ON roles.department_id = departments.id 
+`
+// TODO: Create an array of questions for user input
+const actionPrompt = [
+  {
+    type: 'list',
+    message: 'Select an Action',
+    default: 0,
+    name: "topic",
+    choices: [
+      {value:{ name: 0, query: "SELECT employees.id, first_name, last_name, title, salary, departments.name AS Department FROM employees LEFT JOIN roles ON employees.role_id = roles.id INNER JOIN departments ON roles.department_id = departments.id"},
+      name: "View Full Employee Directory"},
+      {value:{ name: 1, query: ""},name: "View by department"},
+      {value:{ name: 2, query: "SELECT * FROM employees"},name: "Add a new Employee"},
+      {value:{ name: 3, query: "SELECT * FROM employees"},name: "Quit" }
+    ],
+    filter(topic) {
+      return new Promise((res,rej)=> {
+        res({'value': topic.name,
+            'query': topic.query});
+      })
 
+    }
+  }]
 
+  const departmentPrompt = 
+  {
 
-connection.connect(err => {
-  if (err) throw err;
-  console.log('connected as id ' + connection.threadId + '\n');
-  runTool(connection)
-
-});
-
-
-async function runTool (connection) {
-  const actionValue = await actionPromise()
-  console.log(actionValue);
-  switch(actionValue) {
-    case 0:
-      viewAll(connection)
-      break
-    default:
-      afterConnection()
-      
+    type: 'list',
+    message: 'Which department',
+    default: 0,
+    name: "byDepartment",
+    choices: [
+      {value:{ name: 0, query: ""}, name: "sales"},
+      {value:{ name: 1, query: ""}, name: "r&d"},
+      {value:{ name: 2, query: ""}, name:"finance"},
+    ],
+    filter(byDepartment) {
+      return new Promise((res,rej)=> {
+        res({'value': byDepartment.name,
+            'query': byDepartment.query});
+      })
   }
-
-
 }
-const viewAll = (connection) => {
+getEmployeeList = function() {
+  connection.connect( err => {
+    if (err) throw err;
+    connection.query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employees', function(err,res) {
+      const mapped = res.map(  ({ name,value,...rest }) => { return {'value': rest.id, 'name' : name } })
+      console.log(mapped)
+      return mapped;
+    });
+  })
+}
+
+const addPrompt = [
+  {
+    type: 'input',
+    message: 'Enter the employee information\nFirst Name:',
+    name: "first_name", 
+    filter(first_name) {
+      return new Promise((res,rej)=> {
+        res(first_name)
+      })
+    }
+    },
+    {
+      type: 'input',
+      message: 'Last Name:',
+      name: "last_name",  
+    },
+    {
+      type: 'list',
+      message: 'manager',
+    default: 1,
+      choices: function() {
+        return getEmployeeList();
+      }
+
+    }
+
+
+  ];
+
+const cTable = require('console.table');
+
+
+let query;
+inquirer.prompt(actionPrompt).then(
+    function({ topic}) {
+    console.table(topic)
+    if (topic.value === 0 ) {
+      callQuery(topic.query);
+    }
+    else if (topic.value === 2) {
+      inquirer.prompt( [ departmentPrompt, ...addPrompt] ).then(
+        function(addAnswers) {
+          console.table(addAnswers);
+          answers.push(addAnswers)
+
+          query = addAnswers;
+        }
+      ).catch(error => {console.error(error)})
+    }
+    else{
+      return ;
+    }
+    }).catch(err => console.log(err))
+const callQuery = (query) => {
+  connection.connect( err => {
+    if (err) throw err;
+    console.log('connected as id ' + connection.threadId + '\n');
+    connection.query(`${query}`, (err,res) => {
+      if (err) throw err;
+      console.table(res)
+    })})
+
+ }
+
+
+   
+
+
+
+
+var runTool = async function() {
+  const  action = await prompt();
+  if (action.value) {
+    query = JSON.parse( action.value )
+    handleQuery();
+  }
+}
+handleQuery = function () {
+    console.log(query)
+    if (query === null) {console.error('!!!!!!')}
+    switch(query) {
+      case "quit": {
+        afterConnection();
+      }
+      case "view": {
+        return viewAll();
+      }
+      case "add": {
+        return join();
+      }
+      default: {
+        console.log('INVALID')
+
+      }
+    // const actionValue = await actionPromise
+    }
+  }
+  
+
+
+
+
+join  = (connection) => {
+  connection.query('SELECT title, firstName, lastName FROM employees RIGHT JOIN roles ON employees.role_id = roles.id', (err,res) => {
+    console.table(res);
+    viewAll();
+  })
+}
+
+const viewAll = () => {
   connection.query('SELECT * FROM employees', function (err,res) {
-  console.log(res);
-  runTool(connection)
+    console.table(res)
+  //  runTool()
 
   })
 }
@@ -39,11 +179,10 @@ const viewAll = (connection) => {
 const afterConnection = () => {
   connection.query('SELECT * FROM employees', function(err, res) {
     if (err) throw err;
-    console.log(res);
+    console.table(res);
     connection.end();
   });
 }
-
 
 
 
