@@ -1,6 +1,6 @@
 
 const inquirer = require('inquirer');
-const connection = require('./config/connection.js')
+const pool = require('./config/connection.js')
 let query_all = `
 SELECT * FROM departments AS department_name
 RIGHT JOIN roles ON roles.department_id = departments.id 
@@ -15,7 +15,7 @@ const actionPrompt = [
     choices: [
       {value:{ name: 0, query: "SELECT employees.id, first_name, last_name, title, salary, departments.name AS Department FROM employees LEFT JOIN roles ON employees.role_id = roles.id INNER JOIN departments ON roles.department_id = departments.id"},
       name: "View Full Employee Directory"},
-      {value:{ name: 1, query: ""},name: "View by department"},
+      {value:{ name: 1, query: "SELECT * from employees"},name: "View by department"},
       {value:{ name: 2, query: "SELECT * FROM employees"},name: "Add a new Employee"},
       {value:{ name: 3, query: "SELECT * FROM employees"},name: "Quit" }
     ],
@@ -27,18 +27,30 @@ const actionPrompt = [
 
     }
   }]
-
+  getRoles = function() {
+    return pool.query('SELECT * from roles', (err,rows,fields) => {
+     new Promise( (resolve,rej) => {
+        resolve(rows)
+      })
+    })
+    // let values = await pool;
+    // console.log(values)
+    // console.table(rows)
+    // //  function(err,res) {
+    //   if (err) throw err;
+    // })
+  }
   const departmentPrompt = 
   {
 
     type: 'list',
     message: 'Which department',
-    default: 0,
+    default: 1,
     name: "byDepartment",
     choices: [
-      {value:{ name: 0, query: ""}, name: "sales"},
-      {value:{ name: 1, query: ""}, name: "r&d"},
-      {value:{ name: 2, query: ""}, name:"finance"},
+      {value:{ name: 1, query: "SELECT employees.*, roles.title, roles.salary FROM employees INNER JOIN roles on employees.role_id = roles.id  WHERE roles.department_id = 1"}, name: "sales"},
+      {value:{ name: 2, query: "SELECT employees.*, roles.title, roles.salary FROM employees INNER JOIN roles on employees.role_id = roles.id  WHERE roles.department_id = 2"}, name: "r&d"},
+      {value:{ name: 3, query: "SELECT employees.*, roles.title, roles.salary FROM employees INNER JOIN roles on employees.role_id = roles.id  WHERE roles.department_id = 3"}, name:"finance"},
     ],
     filter(byDepartment) {
       return new Promise((res,rej)=> {
@@ -48,14 +60,15 @@ const actionPrompt = [
   }
 }
 getEmployeeList = function() {
-  connection.connect( err => {
-    if (err) throw err;
-    connection.query('SELECT id, CONCAT(first_name, " ", last_name) AS name FROM employees', function(err,res) {
-      const mapped = res.map(  ({ name,value,...rest }) => { return {'value': rest.id, 'name' : name } })
-      console.log(mapped)
-      return mapped;
+  // pool.connect( err => {
+    // if (err) throw err;
+    
+    pool.query('SELECT id, CONCAT(first_name, " ", last_name) AS Manager FROM employees', function(err,res) {
+      return res.map(  ({ Manager, ...rest }) => { return { 'name' : Manager, value: rest } })
+      // console.log(mapped)
+      // return mapped;
     });
-  })
+  // })
 }
 
 const addPrompt = [
@@ -72,108 +85,48 @@ const addPrompt = [
     {
       type: 'input',
       message: 'Last Name:',
-      name: "last_name",  
+      name: "last_name"
     },
-    {
-      type: 'list',
-      message: 'manager',
-    default: 1,
-      choices: function() {
-        return getEmployeeList();
-      }
-
-    }
-
-
-  ];
+    departmentPrompt
+ ];
 
 const cTable = require('console.table');
 
 
-let query;
-inquirer.prompt(actionPrompt).then(
-    function({ topic}) {
-    console.table(topic)
-    if (topic.value === 0 ) {
-      callQuery(topic.query);
-    }
-    else if (topic.value === 2) {
-      inquirer.prompt( [ departmentPrompt, ...addPrompt] ).then(
-        function(addAnswers) {
-          console.table(addAnswers);
-          answers.push(addAnswers)
 
-          query = addAnswers;
-        }
-      ).catch(error => {console.error(error)})
-    }
-    else{
-      return ;
-    }
-    }).catch(err => console.log(err))
+
 const callQuery = (query) => {
-  connection.connect( err => {
-    if (err) throw err;
-    console.log('connected as id ' + connection.threadId + '\n');
-    connection.query(`${query}`, (err,res) => {
+  // connection.connect( err => {
+    // if (err) throw err;
+    console.table(query)
+    // console.log('connected as id ' + connection.threadId + '\n');
+    pool.query(`${query}`, (err,res) => {
       if (err) throw err;
       console.table(res)
-    })})
-
- }
-
-
-   
-
-
-
-
-var runTool = async function() {
-  const  action = await prompt();
-  if (action.value) {
-    query = JSON.parse( action.value )
-    handleQuery();
-  }
-}
-handleQuery = function () {
-    console.log(query)
-    if (query === null) {console.error('!!!!!!')}
-    switch(query) {
-      case "quit": {
-        afterConnection();
-      }
-      case "view": {
-        return viewAll();
-      }
-      case "add": {
-        return join();
-      }
-      default: {
-        console.log('INVALID')
-
-      }
-    // const actionValue = await actionPromise
+      inquirer.prompt( {type:'confirm', name:'confirm', message:'Continue?', default:true}).then(answers => {if (answers.confirm === false) {
+          Promise.resolve('done');
+       } else {
+         return new Promise( (res,rej) => initPrompt())
+       }
     }
+      )
+    })
+  };
+
+
+const insertEmployee = (answers) => {
+  pool.execute(
+    'INSERT INTO employees(first_name, last_name, role_id, manager_id) VALUES (?, ?, ?, ?)',
+    [answers.first_name, answers.last_name, answers.title, null]
+  ),
+  function(err, results, fields) {
+    if (err) throw err;
+    console.table(resuts);
+    console.table(fields);
   }
-  
-
-
-
-
-join  = (connection) => {
-  connection.query('SELECT title, firstName, lastName FROM employees RIGHT JOIN roles ON employees.role_id = roles.id', (err,res) => {
-    console.table(res);
-    viewAll();
-  })
 }
 
-const viewAll = () => {
-  connection.query('SELECT * FROM employees', function (err,res) {
-    console.table(res)
-  //  runTool()
 
-  })
-}
 
 
 const afterConnection = () => {
@@ -185,101 +138,54 @@ const afterConnection = () => {
 }
 
 
+initPrompt = function() {
+  inquirer.prompt(actionPrompt)
+  .then(
+  function({ topic}) {
+      if (topic.value === 0 ) {
+        callQuery(topic.query);
+      } else if ( topic.value === 1) {
+        inquirer.prompt(departmentPrompt).then(function (answers) {
+          callQuery(answers.byDepartment.query)
+          
+        })
+    } else if (topic.value === 2) {
+      inquirer.prompt( addPrompt )
+      .then(function( answers) { 
+        pool.query('SELECT roles.id AS value, roles.title AS name from roles RIGHT JOIN departments on departments.id = roles.department_id WHERE departments.id = ?', [answers.byDepartment.value],function(err,res) {
+          // console.log(answers)
+          console.table(res);
+          // cTable.getTable(res)
+        // })
+          inquirer.prompt({
+            type :'list',
+            message : 'select a title',
+            name:'title',
+            choices: res,
+            default: "1",
+            filter(title) {
+              return new Promise((res,rej)=> {
+                res(title)
+              })
+            }
+        
+        },answers).then(
+          function(answers) {
+            console.table(answers);
+            insertEmployee( answers );
+            return new Promise( (res,rej) => res( initPrompt()) );
+          })
+      })
+    })
+    }
+    else{
+      Promise.resolve('Done');
+    }
+    })
+
+  }
 
 
-
-// createProduct = () => {
-//   console.log('Inserting a new product...\n');
-//   const query = connection.query(
-//     'INSERT INTO employees SET ?',
-//     {
-//       employeeName: "phil",
-//       employeeRole: "janitor"
-//     },
-//     function(err, res) {
-//       if (err) throw err;
-//       console.log(res.affectedRows + ' product inserted!\n');
-//       // Call updateProduct() AFTER the INSERT completes
-//       // updateProduct();
-//     }
-//   );
-//   // logs the actual query being run
-//   console.log(query.sql);
-// };
-
-// updateProduct = () => {
-//   console.log('Updating all Rocky Road quantities...\n');
-//   // Update the quantity for 'Rocky Road' to 100
-//   //
-//   // YOUR CODE HERE
-//   //
-//   // Include the callback function to catch any errors,
-//   // log how many products were updated,
-//   // and call deleteProduct() AFTER the UPDATE completes
-//   //
-//   // YOUR CODE HERE
-//   //
-//   const query = connection.query('UPDATE products SET ? WHERE ?', [
-//       {
-//         quantity: 100
-//       },
-//       {
-//         flavor: 'Rocky Road'
-//       }
-//     ],function(err, res) {
-//       if (err) throw err;
-//       console.log(res.affectedRows + ' product Updated!\n');
-//       deleteProduct();
-//     }
-//   );
-//   // logs the actual query being run
-//   console.log(query.sql);
   
-// };
 
-// deleteProduct = () => {
-//   console.log('Deleting all strawberry ice cream...\n');
-
-//   // Delete the flavor 'strawberry'
-//   //
-//   // YOUR CODE HERE
-//   //
-//   // Include the callback function to catch any errors,
-//   // log how many products were deleted,
-//   // and call the readProducts() AFTER the DELETE completes
-//   //
-//   // YOUR CODE HERE
-//   //
-//   const query = connection.query(
-//     'DELETE FROM products WHERE ?',
-//     {
-//       flavor: 'Strawberry'
-//     }, function(err, res) {
-//     if (err) throw err;
-//       console.log(res.affectedRows + ' product deleted!\n');
-//       readProducts();
-//     })
-
-//   // logs the actual query being run
-//   console.log(query.sql);
-// }
-
-// readProducts = () => {
-//   console.log('Selecting all products...\n');
-//   // Select all of the data from the 'products' table
-//   //
-//   // YOUR CODE HERE
-//   //
-//   // Include the callback function to catch any errors,
-//   // log all results of the SELECT statement,
-//   // and end the connection
-//   //
-//   // YOUR CODE HERE
-//   //
-//   const query = connection.query('SELECT * FROM products', function (err,res) {
-//     if(err) throw err;
-//       console.log(res);
-//       connection.end();
-//   });
-//   console.log(query.sql)
-
+initPrompt();
