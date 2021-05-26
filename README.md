@@ -15,16 +15,20 @@ Implemented with NodeJS, using Inquirer and mysql2 libraries
 
   ## Installation
   ### Package / Repo
+  
+  ```
   $ git clone https://github.com/patrickmklee/employee-tracker.git
   $ cd employee-tracker
   $ npm i
+  ```
+  
   ### Environment
   Use your prefered method (e.g. dotenv) to set the following environment variables (based on your local database configuration)
   - DB_USER
   - DB_PW
   
   ## Usage
-  
+  [Video](https://drive.google.com/file/d/1NPY7Q6RPFHg6QxvbgJT9OQYpNAYNCsrJ/view?usp=sharing)
   
   ## Credits
   
